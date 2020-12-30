@@ -1,9 +1,8 @@
 #include "cmd_splitter.h"
 
-int cmd_sort(list l){
-    char *str = list_value(l);
+int cmd_sort(token t){
+    char *str = token_value(t);
     printf("identifier : %s\n",str);
-    printf("%d\n",strcmp(str,"\"hello\""));
     int ret;
     if (!strcmp(str,"\"hello\"")) {
         ret = HELLO;
@@ -28,18 +27,17 @@ int cmd_sort(list l){
     }else{
         ret =  -1;
     }
-    printf("cmd analysis, returning %d\n",ret);
-        return ret;
+    return ret;
 }
 
 /*int main(int argc, char **argv){  
     //char *chain = "{\"cmd\":\"get\",\"args\":{\"host\":{\"IP\":\"127.0.0.1\",\"port\":75375,\"idNode\":15000},\"key\":50}}"; 
     char *chain = "{\"cmd\":\"hello_ok\", \"args\":{\"id_requested\":xxxx, \"resp\":{\"idNode\":yyyy,\"ip\":YYYY,\"port\":yYyY}, \"data\":{20:50,25:80},\"ip_port_prec\":{\"idNode\":zzzz, \"IP\":ZZZZ, \"port\":zZzZ}, \"id_request\":aAaAa}";
-    list l= list_generate( chain);
+    token t= token_generate( chain);
     printf("\n----------\ngeneration done\n----------\n");
-    list_print(l);
+    token_print(l);
     printf("\n----------\nprinting done\n----------\n");
-    list_clean(l);
+    token_clean(l);
     printf("\n----------\ncleaning done\n----------\n");
     printf("\n");
   

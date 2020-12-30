@@ -14,6 +14,6 @@
 #define ANSWER_RESP 9
 #define UPDATE_TABLE 10
 
-int cmd_sort(list l);
+int cmd_sort(token t);
 
 #endif
