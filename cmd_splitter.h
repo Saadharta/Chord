@@ -13,6 +13,9 @@
 #define GET_RESP 8
 #define ANSWER_RESP 9
 #define UPDATE_TABLE 10
+#define PRINT 11
+#define GET_STAT 12
+#define TERMINATE 13
 
 int cmd_sort(token t);
 

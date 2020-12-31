@@ -47,8 +47,8 @@ void ans_resp(token t, routing r, address self);
 void update_table(token t, routing r, address self);
 
 /* Stats */
-void print(token t, routing r, address self);
-void get_stat(token t, routing r, address self);
+void print(token t, routing r, address self, statistics s);
+void get_stat(token t, routing r, address self, statistics s);
 
 
 /*--------------*/
@@ -56,7 +56,7 @@ void get_stat(token t, routing r, address self);
 /*--------------*/
 
 /* Insertion */
-void send_hello(address src, address dest);
+void send_hello(address src, address dest, address self);
 void send_hello_ok(uint id, address resp_addr, node d, address prev, uint req_id, address dest);
 void send_hello_ko(uint id, address dest, address self);
 
@@ -72,22 +72,25 @@ void send_ans_resp(uint key, address src, address dest);
 void send_update_table(address src, uint lower_key, uint amount, address dest, address self);
 
 /* Stats */
-void send_print(address src, address dest, node n); 
-void send_get_stat(address src, int msg_get, int msg_put, int msg_gest, address dest);
-int end();
+void send_print(address src, address dest, address self); 
+void send_get_stat(address src, int msg_get, int msg_put, int msg_gst, address dest, address self);
+void terminate(routing r, address self);
 
 /* General purpose */
 int is_between(uint a, uint b, uint t){
-    if (a <= t && t <= b)
-        return 1;
-    else 
-        if(a > b)
-            return(is_between(a,MAX_NODES,t) || is_between(0,b,t));
+    if(a < b) { 
+        if (a <= t && t <= b)
+            return 1;
         else
             return 0;
-        
+    }else{ 
+        if((0 <= t && t <= b)||(MAX_NODES > t && t >= a))
+            return 1;
+        else
+            return 0;
+    }        
 }
 
 int comm_out(address dest, char* buff);
-char *comm_in(const address self);
+char *comm_in(const address self, int sock_id, struct sockaddr_in server_adr);
 #endif

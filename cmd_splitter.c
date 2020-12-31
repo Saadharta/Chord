@@ -7,23 +7,29 @@ int cmd_sort(token t){
     if (!strcmp(str,"\"hello\"")) {
         ret = HELLO;
     }else if(!strcmp(str,"\"hello_ok\"")){
-        ret =  HELLO_OK;
+        ret = HELLO_OK;
     }else if(!strcmp(str,"\"hello_ko\"")){
-        ret =  HELLO_KO;
+        ret = HELLO_KO;
     }else if(!strcmp(str,"\"get\"")){
-        ret =  GET;
+        ret = GET;
     }else if(!strcmp(str,"\"answer\"")){
-        ret =  ANSWER;
+        ret = ANSWER;
     }else if(!strcmp(str,"\"put\"")){
-        ret =  PUT;
+        ret = PUT;
     }else if(!strcmp(str,"\"ack\"")){
-        ret =  ACK;
+        ret = ACK;
     }else if(!strcmp(str,"\"get_resp\"")){
-        ret =  GET_RESP;
+        ret = GET_RESP;
     }else if(!strcmp(str,"\"answer_resp\"")){
-        ret =  ANSWER_RESP;
+        ret = ANSWER_RESP;
     }else if(!strcmp(str,"\"update_table\"")){
-        ret =  UPDATE_TABLE;
+        ret = UPDATE_TABLE;
+    }else if(!strcmp(str,"\"print\"")){
+        ret = PRINT;
+    }else if(!strcmp(str,"\"stats\"")){
+        ret = GET_STAT;
+    }else if(!strcmp(str,"\"terminate\"")){
+        ret = TERMINATE;
     }else{
         ret =  -1;
     }

@@ -54,6 +54,12 @@ void address_id_update(address a, uint id);
 address address_create(uint id, char *ip, uint port);
 
 /**
+ * print the contents of a
+ * @param a address to print from
+ * @return contents of a 
+ */
+char *address_print(address a);
+/**
  * free memory occupied by an address struct
  * @param a adress struct to be free'd
  */
@@ -184,7 +190,7 @@ uint routing_amount(const routing r);
  * @param r routing struct 
  * @return list of all owned nodes and their value
  */
-node routing_values(const routing r);
+node routing_values(routing r);
 
 /**
  * allocate memory and fill a routing struct with the provided informations
@@ -209,6 +215,12 @@ routing routing_create(address prev, address next, uint lower_id, uint higher_id
 void routing_update(routing r, address prev, address next, int lower_id, int higher_id, node n);
 
 /**
+ * display the content of the routing struct
+ * @param r routing struct to print
+ */
+void routing_print(routing r);
+
+/**
  * free everything from the provided routing struct
  * @param r routing struct to clean 
  */
@@ -221,7 +233,62 @@ void routing_clean(routing r);
 
 typedef struct s_statistics *statistics;
 
+/**
+ * allocate memory and fill a new statistic
+ * @return a new statistic struct 
+ */
+statistics stat_create();
 
+/**
+ * provide get statistics
+ * @param s stat struct to access
+ * @return stats for get
+ */
+int stat_get(statistics s);
+
+/**
+ * provide put statistics
+ * @param s stat struct to access
+ * @return stats for get
+ */
+int stat_put(statistics s);
+
+/**
+ * provide gestion statistics
+ * @param s stat struct to access
+ * @return stats for get
+ */
+int stat_gst(statistics s);
+
+/**
+ * print statistics
+ * @param s stat struct to display 
+ */
+void stat_print(statistics s);
+
+/**
+ * increase get statistics
+ * @param s stat struct to increase 
+ */
+void stat_iget(statistics s);
+
+/**
+ * increase put statistics
+ * @param s stat struct to increase 
+ */
+void stat_iput(statistics s);
+
+/**
+ * increase gestion statistics
+ * @param s stat struct to increase 
+ */
+void stat_igst(statistics s);
+
+/**
+ * free a statistic struct
+ * @param s stat struct to free
+ */
+void stat_clean(statistics s);
 /*--------------*/
 /* TOKEN struct */
 /*--------------*/

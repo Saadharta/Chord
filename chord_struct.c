@@ -29,6 +29,12 @@ address address_create(uint id, char *ip, uint port){
     return a;
 }
 
+char *address_print(address a){
+    char *msg = malloc(sizeof(char)*32);
+    snprintf(msg,32,"%d@%s:%d", a->id, a->ip, a->port);
+    return msg;
+}
+
 void address_clean(address a){
     free(a);
 }
@@ -150,16 +156,21 @@ void node_split(node e, node n){
 
 float node_find(node e, uint k){
     node n_tmp = e;
-    int key;
+    float v;
+    if(e->k == k){
+        v = e->v;
+        goto entry_val;
+    }
     do{
         n_tmp=n_tmp->next;
-    }while(n_tmp!=e && n_tmp->k >= k);
+    }while(n_tmp!=e && n_tmp->k != k);
     if(n_tmp == e){
-        key = -1;
+        v = -1;
     }else{
-        key = ((n_tmp->k == k) ? n_tmp->v : -1);
+        v = ((n_tmp->k == k) ? n_tmp->v : -1);
     }
-    return key;
+entry_val:
+    return v;
 }
 
 char *node_print(node e){
@@ -259,6 +270,22 @@ void routing_update(routing r, address prev, address next, int lower_id, int hig
         node_add(r->n, n);
 }
 
+void routing_print(routing r){
+    char *msg_prev = address_print(r->prev);
+    char *msg_next = address_print(r->next);
+    printf("-------> content of my routing table <-------\n");
+    printf("previous node : %s\n",msg_prev);
+    printf("next node : %s\n",msg_next);
+    printf("lower_id : %d\n", r->lower_id);
+    printf("higher_id : %d\n", r->higher_id);
+    printf("nodes : %s\n", node_print(r->n));
+    printf("---------------------------------------------\n");
+    memset(msg_prev, 0 ,strlen(msg_prev));
+    free(msg_prev);
+    memset(msg_next, 0 ,strlen(msg_next));
+    free(msg_next);
+    return;
+}
 void routing_clean(routing r){
     if(r->prev != NULL)
         address_clean(r->prev);
@@ -276,6 +303,47 @@ struct s_statistics{
     int msg_gst;
 };
 
+statistics stat_create(void){
+    statistics s = malloc(sizeof(struct s_statistics));
+    s->msg_get = 0;
+    s->msg_put = 0;
+    s->msg_gst = 0;
+    return s;
+}
+
+void stat_print(statistics s){
+    printf("-----Statistics-----\n");
+    printf("msg_get: %d\nmsg_put: %d\nmsg_gst: %d\n", s->msg_get, s->msg_put, s->msg_gst);
+    printf("--------------------\n");
+}
+
+int stat_get(statistics s){
+    return s->msg_get;
+}
+
+int stat_put(statistics s){
+    return s->msg_put;
+}
+
+int stat_gst(statistics s){
+    return s->msg_gst;
+}
+
+void stat_iget(statistics s){
+    ++s->msg_get;
+}
+
+void stat_iput(statistics s){
+    ++s->msg_put;
+}
+
+void stat_igst(statistics s){
+    ++s->msg_gst;
+}
+
+void stat_clean(statistics s){
+    free(s);
+}
 struct s_token{
     token prev;
     token next;
@@ -300,6 +368,7 @@ token token_create(char *str, int size){
     token t = malloc(sizeof(struct s_token));
     t->size = size;
     t->value = malloc(sizeof(char)*size);
+    memset(t->value, 0, t->size);
     memcpy(t->value,str,t->size);
     t->prev = t;
     t->next = t;
@@ -312,7 +381,6 @@ token token_generate(char *chain){
     char *str;
     int size;
     const char delim[4] = ":, ";
-    //printf(" input : %s\n",chain);
     /* avoid the "cmd" present everytime */
     str = strtok(c, delim);
     str = strtok(NULL, delim);
@@ -334,7 +402,6 @@ token token_generate(char *chain){
                     str[--size]= 0;
                 }
             }
-            //printf("adding %s to %s\n",str, token_value(t));
             token_add(t,str,size);
         }
     }
@@ -346,6 +413,7 @@ void token_clean(token t){
     while(t_tmp!=t){
         t_tmp->prev->next = t_tmp->next;
         t_tmp->next->prev = t_tmp->prev;
+        memset(t->value, 0, t->size);
         free(t_tmp->value);
         t_tmp->prev = NULL;
         t_tmp->next = NULL;
