@@ -20,36 +20,30 @@
 #define BUF_SIZE 1000
 #define PORT_DEFAULT 53
 
-#ifdef DEBUG
-    #define log_debug(X, args) do { printf(X, ## __VA_ARGS__); } 
-#else
-    #define log_debug(X, args)    { }
-#endif
-
 
 /*-------------------------*/
 /* Reception and Treatment */
 /*-------------------------*/
 
 /* insertion */
-uint hello(token t, routing r, address self, uint req_id);
-void hello_ok(token t, routing r, address self);
+uint hello(token t, routing r, uint req_id);
+void hello_ok(token t, routing r);
 
 /*Node managment*/
-void get(token t, routing r, address self);
-void answer(token t, routing r, address self);
-void put(token t, routing r, address self);
-uint ack(token t, routing r, address self);
+void get(token t, routing r);
+void answer(token t, routing r);
+void put(token t, routing r);
+uint ack(token t, routing r);
 
 /* Routing updates */
-void get_resp(token t, routing r, address self);
-void ans_resp(token t, routing r, address self);
-void update_table(token t, routing r, address self);
+void get_resp(token t, routing r);
+void ans_resp(token t, routing r);
+void update_table(token t, routing r);
 
 /* Stats */
-void print(token t, routing r, address self, statistics s);
-void get_stat(token t, routing r, address self, statistics s);
-
+void print(token t, routing r, statistics s);
+void get_stat(token t, routing r, statistics s);
+void terminate(routing r);
 
 /*--------------*/
 /* Transmission */
@@ -74,7 +68,7 @@ void send_update_table(address src, uint lower_key, uint amount, address dest, a
 /* Stats */
 void send_print(address src, address dest, address self); 
 void send_get_stat(address src, int msg_get, int msg_put, int msg_gst, address dest, address self);
-void terminate(routing r, address self);
+
 
 /* General purpose */
 int is_between(uint a, uint b, uint t){

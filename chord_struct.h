@@ -6,8 +6,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#define MAX_NODES 16
-#define MAX_NEIGHBOURS 15 //(log2 (65536))-1
+#define MAX_NEIGHBOURS 16//(log2 (65536))-1
+#define MAX_NODES (1<<MAX_NEIGHBOURS)-1
 
 
 /*----------------*/
@@ -170,6 +170,12 @@ address routing_next(const routing r);
 
 /**
  * @param r routing struct 
+ * @return address of self
+ */
+address routing_self(const routing r);
+
+/**
+ * @param r routing struct 
  * @return key of the smallest owned node 
  */
 uint routing_lid(const routing r);
@@ -193,15 +199,39 @@ uint routing_amount(const routing r);
 node routing_values(routing r);
 
 /**
+ * return the owner of the N+2^i th node
+ * @param r routing struct
+ * @param i index of the N+2^i th node 
+ * @return address of owner
+ */
+address routing_get_fg(routing r, int i);
+
+/**
+ * search for the higher inferior owner of N+2^i 
+ * @param r routing struct
+ * @param i index of the N+2^i th node
+ * @return address of higher inferior owner of N+2^i
+ */
+address routing_cls_fg(routing r, uint i);
+
+/**
+ * @param r routing struct
+ * @param k key which need to update it's owner
+ * @param a address struct of the owner of the N+2^i node
+ */
+void routing_set_fg(routing r, int k, address a);
+
+/**
  * allocate memory and fill a routing struct with the provided informations
  * @param prev address of the previous owner node; can be self if there is only one owner node in the network
  * @param next address of the next owner node; can be self if there is only one owner node in the network
+ * @param self address of self
  * @param lower_id key of the lowest owned node
  * @param higher_id key of the highest owned node
  * @param n list of all owned nodes and their value
  * @return a routing struct accurately filled 
  */
-routing routing_create(address prev, address next, uint lower_id, uint higher_id, node n);
+routing routing_create(address prev, address next, address self, uint lower_id, uint higher_id, node n);
 
 /**
  * update the provided routing struct

@@ -1,11 +1,11 @@
 #include "chord_struct.h"
 
-
 struct s_address{
     uint id;
-    char ip[16];
+    char *ip;
     uint port;
 };
+
 uint address_id(const address a){
     return a->id;
 }
@@ -22,20 +22,24 @@ uint address_port(const address a){
 }
 
 address address_create(uint id, char *ip, uint port){
-    address a= malloc(sizeof(struct s_address));
+    int len = 16;
+    address a= malloc(sizeof(struct s_address)+16*sizeof(char));
+    a->ip = malloc(sizeof(char)*15+1);
     a->id = id;
-    strcpy(a->ip, ip);
+    memcpy(a->ip, ip, len);
     a->port = port;
     return a;
 }
 
 char *address_print(address a){
-    char *msg = malloc(sizeof(char)*32);
-    snprintf(msg,32,"%d@%s:%d", a->id, a->ip, a->port);
+    char *msg = malloc(sizeof(char)*28+1);
+    snprintf(msg,29,"%5d@%s:%-5d", a->id, a->ip, a->port);
     return msg;
 }
 
 void address_clean(address a){
+    /*memset(a->ip, 0, 16); //len 15 + '\0'*/
+    free(a->ip);
     free(a);
 }
 
@@ -60,7 +64,7 @@ float node_value(const node n){
 }
 
 node node_create(uint k, float v){
-    node n = malloc(sizeof(node));
+    node n = malloc(sizeof(struct s_node));
     n->prev = n;
     n->next = n;
     n->k = k;
@@ -112,7 +116,6 @@ void node_add_node(node e, node n){
 void node_add(node e, node n){
     node n_tmp=n;
     do{
-        //printf("moving node %d:%f\n",n_tmp->k,n_tmp->value );
         node_add_node(e,node_create(n_tmp->k, n_tmp->v));
         n_tmp = n_tmp->next;
     }while (n_tmp!=n);
@@ -175,16 +178,14 @@ entry_val:
 
 char *node_print(node e){
     node n_tmp = e->next;
-    char *ret=malloc(MAX_NODES*(sizeof(uint)+sizeof(float)));
-    char *msg;
+    char *ret = malloc(100*(sizeof(uint)+sizeof(float)+3));
+    char *msg = malloc(32*sizeof(char)+3);
+    strcpy(ret,"");
     while(n_tmp!= e){
-        msg=malloc(32*sizeof(char));
         snprintf(msg,32, "%d:%f,",n_tmp->k, n_tmp->v);
         strcat(ret, msg);
         n_tmp = n_tmp->next;
-        free(msg);
     }
-    msg=malloc(32*sizeof(char));
     snprintf(msg,32, "%d:%f",e->k, e->v);
     strcat(ret, msg);
     free(msg);
@@ -208,18 +209,26 @@ void node_clean(node e){
 struct s_routing{
     address prev;
     address next;
+    address self;
     uint lower_id;
     uint higher_id;
     uint amount;
     node n;
-    //address finger_table[MAX_NEIGHBOURS]; V3
+    address finger_table[MAX_NEIGHBOURS]; 
 };
+
 address routing_prev(const routing r){
     return r->prev;
 }
+
 address routing_next(const routing r){
     return r->next;
 }
+
+const address routing_self(const routing r){
+    return r->self;
+}
+
 uint routing_lid(const routing r){
     return r->lower_id;
 }
@@ -233,10 +242,40 @@ node routing_values(const routing r){
     return r->n;
 }
 
-routing routing_create(address prev, address next, uint lower_id, uint higher_id, node n){
+address routing_get_fg(routing r, int i){
+    if(i<MAX_NEIGHBOURS)
+        return r->finger_table[i];
+    else
+        return r->finger_table[MAX_NEIGHBOURS-1];
+}
+
+address routing_cls_fg(routing r, uint i){
+    int idx = 0;
+    if(r->finger_table[0]==NULL){
+        printf("returning next");
+        return routing_next(r);
+    }
+    while((idx<MAX_NEIGHBOURS-1) && (r->finger_table[idx]!=NULL) && (address_id(r->finger_table[idx])<i)){   
+        printf("%d < %d with %d\n",address_id(r->finger_table[idx]), i, idx);
+        ++idx;
+    }
+    return r->finger_table[idx];
+}
+
+void routing_set_fg(routing r, int k, address a){
+    int i = 0;
+    while( ((routing_hid(r)+(1<<i))%MAX_NODES+1) <k){
+        ++i;
+    }
+    r->finger_table[i] = address_create(address_id(a), address_ip(a),address_port(a));
+}
+
+routing routing_create(address prev, address next, address self, uint lower_id, uint higher_id, node n){
     routing r = malloc(sizeof(struct s_routing));
+    int i = 0;
     r->prev = prev;
     r->next = next;
+    r->self = self;
     r->lower_id = lower_id;
     r->higher_id = higher_id;
     if(r->lower_id < r->higher_id){
@@ -245,14 +284,23 @@ routing routing_create(address prev, address next, uint lower_id, uint higher_id
         r->amount = (MAX_NODES - r->lower_id)+r->higher_id;
     }
     r->n = n;
+    for (i = 0; i< MAX_NEIGHBOURS; ++i){
+        r->finger_table[i] = address_create(address_id(self), address_ip(self), address_port(self));
+    }
     return r;
 }
 
 void routing_update(routing r, address prev, address next, int lower_id, int higher_id, node n){
-    if(prev != NULL)
+    if(prev != NULL){
+        address_clean(r->prev);
         r->prev = prev;
-    if(next != NULL)
+        //r->prev = address_create(address_id(prev),address_ip(prev), address_port(next));
+    }
+    if(next != NULL){
+        address_clean(r->next);
+        //r->next = address_create(address_id(next),address_ip(next), address_port(next));
         r->next = next;
+    }
     if(lower_id != -1)
         r->lower_id = (uint)lower_id;
     if(higher_id != -1)
@@ -273,24 +321,47 @@ void routing_update(routing r, address prev, address next, int lower_id, int hig
 void routing_print(routing r){
     char *msg_prev = address_print(r->prev);
     char *msg_next = address_print(r->next);
+    char *msg_own;
+    char *msg_node= node_print(r->n);
+    //int s;
     printf("-------> content of my routing table <-------\n");
-    printf("previous node : %s\n",msg_prev);
     printf("next node : %s\n",msg_next);
     printf("lower_id : %d\n", r->lower_id);
     printf("higher_id : %d\n", r->higher_id);
-    printf("nodes : %s\n", node_print(r->n));
-    printf("---------------------------------------------\n");
-    memset(msg_prev, 0 ,strlen(msg_prev));
+    printf("nodes : %s\n", msg_node);
+    printf("finger table:\n");
+    printf("+--------+------------------------+\n");
+    printf("| idNode |      owner of node     |\n");
+    printf("+--------+------------------------+\n");
+    printf("|  prec  | %s  |\n",msg_prev);
+    for(int i =0; i <MAX_NEIGHBOURS; ++i){
+        msg_own = address_print(r->finger_table[i]);
+        printf("| %6d | %s  |\n",(routing_hid(r)+(1<<i))%(MAX_NODES+1),msg_own);
+        free(msg_own);
+    }
+    printf("+--------+------------------------+\n");
+    printf("<------- end of my routing table ----------->\n");
+    //s = strlen(msg_prev);
+    //memset(&msg_prev, 0, sizeof(msg_prev));
     free(msg_prev);
-    memset(msg_next, 0 ,strlen(msg_next));
+    //memset(&msg_next, 0, sizeof(msg_next));
+    free(msg_node);
+    //memset(&msg_node, 0, sizeof(msg_node));
     free(msg_next);
     return;
 }
+
 void routing_clean(routing r){
-    if(r->prev != NULL)
+    int i = MAX_NEIGHBOURS;
+    while(i != 0){
+       address_clean(r->finger_table[--i]);
+    }
+    if(r->prev != NULL) 
         address_clean(r->prev);
-    if(r->next != NULL)
+    if(r->next != NULL) 
         address_clean(r->next);
+    if(r->self != NULL)
+        address_clean(r->self);
     if(r->n != NULL)
         node_clean(r->n);
     free(r);
@@ -367,7 +438,7 @@ int token_size(token t){
 token token_create(char *str, int size){
     token t = malloc(sizeof(struct s_token));
     t->size = size;
-    t->value = malloc(sizeof(char)*size);
+    t->value = malloc(sizeof(char)*size+1);
     memset(t->value, 0, t->size);
     memcpy(t->value,str,t->size);
     t->prev = t;
@@ -376,35 +447,33 @@ token token_create(char *str, int size){
 }
 
 token token_generate(char *chain){
-    char c[strlen(chain)];
-    memcpy (c,chain,strlen(chain));
-    char *str;
+    int i, j, len;
+	len = strlen(chain);
+	for(i = 0; i < len; i++){
+		if(chain[i] == '\"' || chain[i]=='}' || chain[i]=='{'){
+			for(j = i; j < len; j++){
+				chain[j] = chain[j + 1];
+	        }
+			len--;
+			i--;	
+		} 
+	}	
     int size;
     const char delim[4] = ":, ";
     /* avoid the "cmd" present everytime */
-    str = strtok(c, delim);
+    char *str = strtok(chain, delim);
     str = strtok(NULL, delim);
-    token t = token_create(str, strlen(str));
+    token t = token_create(str, strlen(str)+1);
     /* avoid the "args" present everytime */
     str=strtok(NULL,delim);
     while (str != NULL) {
         str = strtok(NULL,delim);
         if(str !=NULL){
-            size = strlen(str);
-            if(str[0]=='{' || str[0]=='"'){
-                while(str[0]=='{' || str[0]=='"'){
-                    str++;
-                    size--;
-                }
-            }
-            if(str[size-1]=='}' || str[size-1]=='"'){
-                while(str[size-1]=='}' || str[size-1]=='"'){ 
-                    str[--size]= 0;
-                }
-            }
+            size = strlen(str)+1;
             token_add(t,str,size);
         }
     }
+    free(chain);
     return t;
 }
 

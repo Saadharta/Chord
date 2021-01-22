@@ -17,7 +17,6 @@ char *comm_in(const address self, int sock_id, struct sockaddr_in server_adr){
             exit(EXIT_FAILURE);
     }
     //printf("Message reçu : %s\n", buffer);
-
     return buffer;
 }
 
@@ -63,12 +62,13 @@ int comm_out(address dest, char* buff){
 }
 
 /* Insert */
-uint hello(token t, routing r, address self, uint req_id){
+uint hello(token t, routing r, uint req_id){
     //hello idNode %d ip %s port %d
     token t_curr = token_next(token_next(t));
     uint id, port;
     char ip[16];
     address src;
+    address self = routing_self(r);
 
     id = (uint)atoi(token_value(t_curr));
     t_curr=(token_next(token_next(t_curr)));
@@ -85,11 +85,11 @@ uint hello(token t, routing r, address self, uint req_id){
             node n_tmp = node_create(address_id(src),0);
             node_split(routing_values(r), n_tmp);
             address prev = routing_prev(r);
-            routing_update(r, src,NULL,(address_id(src)+1)%MAX_NODES,-1,NULL);
+            routing_update(r, src,NULL,(address_id(src)+1)%(MAX_NODES+1),-1,NULL);
             routing_print(r);
             
             send_hello_ok(address_id(src),self,n_tmp,prev, ++req_id, src);
-            
+            node_clean(n_tmp);
         }else{
             send_hello(src, routing_prev(r), self);
         }
@@ -99,13 +99,16 @@ uint hello(token t, routing r, address self, uint req_id){
 }
 
 
-void hello_ok(token t, routing r, address self){
+void hello_ok(token t, routing r){
     //hello_ok id_requested %d ip_port_resp idNode %d ip %s port %d data %s prec idNode %d ip %s port %d id_request %d}
     token t_curr = token_next(token_next(t));
     uint id, port, k;
     float v;
     char ip[16];
+    char *node;
     address prev,next;
+    address self = routing_self(r);
+
     if((uint)atoi(token_value(t_curr))!= address_id(self)){
         perror("hello_ok didn't acknowledged the right id");
         exit(EXIT_FAILURE);
@@ -141,11 +144,10 @@ void hello_ok(token t, routing r, address self){
     prev=address_create(id,ip,port);
 
     t_curr = token_next(token_next(t_curr));
-    
-    printf("%d@%s:%d : Receiving [HELLO_OK] from %d@%s:%d with previous %d@%s:%d and node %s \n",address_id(self), address_ip(self), address_port(self), address_id(next), address_ip(next), address_port(next), address_id(prev), address_ip(prev), address_port(prev), node_print(routing_values(r)));
-   
+    node = node_print(routing_values(r));
+    printf("%d@%s:%d : Receiving [HELLO_OK] from %d@%s:%d with previous %d@%s:%d and node %s \n",address_id(self), address_ip(self), address_port(self), address_id(next), address_ip(next), address_port(next), address_id(prev), address_ip(prev), address_port(prev), node);
     /* updating our routing data */
-    routing_update(r,prev,next,(address_id(prev)+1)% MAX_NODES, -1, NULL);
+    routing_update(r,prev,next,(address_id(prev)+1)% (MAX_NODES+1), -1, NULL);
     routing_print(r);
     /* acknowledging our next node of the reception */
     send_ack((uint)atoi(token_value(t_curr)),next, self);
@@ -153,17 +155,20 @@ void hello_ok(token t, routing r, address self){
     /* notifying our previous to update his routing info */
     //send_update_table(self, routing_lid(r),routing_amount(r),routing_prev(r));
     send_update_table(self, -1,-1,routing_prev(r),self);
+
+    free(node);
     return;
 }
 
 
-void get(token t, routing r, address self){
+void get(token t, routing r){
     // get host idNode %d ip %s port %d key %d
     token t_curr = token_next(t);
     uint id, port, k;
     float v;
     char ip[16];
     address src;
+    address self = routing_self(r);
 
     /* fetching the source address */
     t_curr = token_next(token_next(t_curr));
@@ -186,16 +191,21 @@ void get(token t, routing r, address self){
             send_answer(k,v,"False", src, self);
         }
     }else{
-        send_get(src, k, routing_prev(r), self);
+        if(address_id(routing_prev(r))!=address_id(src))
+            send_get(src, k, routing_prev(r), self);
+        else
+            send_answer(k,-1,"False", src, self);
+
     }
     return;
 }
 
-void answer(token t, routing r, address self){
+void answer(token t, routing r){
     //answer key %d value %f val_exists %s
     token t_curr = token_next(t);
     uint k;
     float v;
+    address self = routing_self(r);
 
     /* fetching the source address */
     t_curr = token_next(t_curr);
@@ -207,13 +217,14 @@ void answer(token t, routing r, address self){
     return;
 }
 
-void put(token t, routing r, address self){
+void put(token t, routing r){
     //put host idNode %d ip %s port %d key %d value %f id %d
     token t_curr = token_next(t);
     uint id, port, k, req_id;
     float v;
     char ip[16];
     address src;
+    address self = routing_self(r);
     
     /* fetching our next node address*/
     t_curr = token_next(token_next(t_curr));
@@ -240,23 +251,27 @@ void put(token t, routing r, address self){
     }else{
         send_put(src, k, v, req_id, routing_prev(r), self);
     }
+    address_clean(src);
     return;
 }
 
-uint ack(token t, routing r, address self){
+uint ack(token t, routing r){
     //ack id req_id
     token t_curr = token_next(token_next(t));
+    address self = routing_self(r);
+
     uint req_id = (uint)atoi(token_value(t_curr));
     printf("%d@%s:%d : Receiving [ACK] %d\n",address_id(self), address_ip(self), address_port(self),req_id);
     return req_id;
 }
 
-void get_resp(token t, routing r, address self){
+void get_resp(token t, routing r){
     //get_resp src idNode %d ip %s port %d key %d
     token t_curr = token_next(t);
     uint id, port, k;
     char ip[16];
     address src;
+    address self = routing_self(r);
 
     /* fetching source address*/
     t_curr = token_next(token_next(t_curr));
@@ -281,12 +296,14 @@ void get_resp(token t, routing r, address self){
     return;
 }
 
-void ans_resp(token t, routing r, address self){
+void ans_resp(token t, routing r){
     //answer_resp key %d src\ idNode %d ip %s port %d
     token t_curr = token_next(t);
     uint id, port, k;
     char ip[16];
     address src;
+    address self = routing_self(r);
+
     /* fetching key value */
     t_curr = token_next(t_curr);
     k = (uint)atoi(token_value(t_curr));
@@ -305,13 +322,14 @@ void ans_resp(token t, routing r, address self){
 
 }
 
-void update_table(token t, routing r, address self){
+void update_table(token t, routing r){
     //update_table src idNode %d ip %s port %d id_lower %d amount %d
     token t_curr = token_next(t);
     uint id, port;
     int lower_key, amount;
     char ip[16];
     address src;
+    address self = routing_self(r);
 
     t_curr=(token_next(token_next(t_curr)));
     id = (uint)atoi(token_value(t_curr));
@@ -338,12 +356,13 @@ void update_table(token t, routing r, address self){
     routing_print(r);
     return;
 }
-void print(token t, routing r, address self, statistics s){
+void print(token t, routing r, statistics s){
     //print src idNode %d ip %s port %d
     token t_curr = token_next(t);
     uint id, port;
     char ip[16];
     address src;
+    address self = routing_self(r);
 
     t_curr=(token_next(token_next(t_curr)));
     id = (uint)atoi(token_value(t_curr));
@@ -355,18 +374,20 @@ void print(token t, routing r, address self, statistics s){
     
     printf("%d@%s:%d : Receiving [PRINT] from %d@%s:%d\n",address_id(self), address_ip(self), address_port(self), address_id(src), address_ip(src), address_port(src));
     stat_print(s);
-    if(routing_prev(r)!=src)
+    if(address_port(self)!=address_port(src)){
         send_print(src, routing_prev(r), self);
+    }
     return;
 }
 
-void get_stat(token t, routing r, address self, statistics s){
+void get_stat(token t, routing r, statistics s){
     //stats src idNode %d ip %s port %d nb_get %d nb_put %d nb_other %d
     token t_curr = token_next(t);
     uint id, port;
     int msg_get, msg_put, msg_gst;
     char ip[16];
     address src;
+    address self = routing_self(r);
 
     t_curr=(token_next(token_next(t_curr)));
     id = (uint)atoi(token_value(t_curr));
@@ -384,7 +405,7 @@ void get_stat(token t, routing r, address self, statistics s){
     msg_gst = (uint)atoi(token_value(t_curr));
 
     printf("%d@%s:%d : Receiving [GET_STATS] from %d@%s:%d\n",address_id(self), address_ip(self), address_port(self), address_id(src), address_ip(src), address_port(src));
-    if(self!=src){
+    if(address_id(self)!=address_id(src)){
         send_get_stat(src, msg_get + stat_get(s), msg_put + stat_put(s), msg_gst + stat_gst(s),routing_prev(r), self);
     }else{
         printf("-----global Statistics-----\n");
@@ -544,7 +565,7 @@ void send_print(address src, address dest, address self){
     char *msg_src = address_print(src);
     char *msg_dest = address_print(dest);
     char *msg_self = address_print(self);
-    snprintf(msg,150, "{\"cmd\":\"stats\",\"args\":{\"src\":{\"idNode\":%d,\"ip\":\"%s\",\"port\":%d}}}", address_id(src),address_ip(src),address_port(src));
+    snprintf(msg,150, "{\"cmd\":\"print\",\"args\":{\"src\":{\"idNode\":%d,\"ip\":\"%s\",\"port\":%d}}}", address_id(src),address_ip(src),address_port(src));
     printf("%s : Sending [PRINT] from %s to %s\n", msg_self, msg_src, msg_dest);
     comm_out(dest, msg);
     free(msg_src);
@@ -560,7 +581,7 @@ void send_get_stat(address src, int msg_get, int msg_put, int msg_gst, address d
     char *msg_dest = address_print(dest);
     char *msg_self = address_print(self);
     snprintf(msg,150, "{\"cmd\":\"stats\",\"args\":{\"src\":{\"idNode\":%d,\"ip\":\"%s\",\"port\":%d}},\"nb_get\":%d,\"nb_put\":%d,\"nb_other\":%d}", address_id(src),address_ip(src),address_port(src), msg_get, msg_put, msg_gst);
-    printf("%s : Sending [PRINT] from %s to %s\n", msg_self, msg_src, msg_dest);
+    printf("%s : Sending [GET_STATS] from %s to %s\n", msg_self, msg_src, msg_dest);
     comm_out(dest, msg);
     free(msg_src);
     free(msg_dest);
@@ -568,15 +589,16 @@ void send_get_stat(address src, int msg_get, int msg_put, int msg_gst, address d
     return;
 }
 
-void terminate(routing r, address self){
+void terminate(routing r){
     node n_tmp = routing_values(r);
+    address self = routing_self(r);
     int req_id = 0;
     do{
         send_put(self,node_key(n_tmp),node_value(n_tmp),req_id++, routing_next(r), self);
         n_tmp= node_next(n_tmp);
     }while(n_tmp != routing_values(r) );
-    /* removing self from previous node routing struct */
 
+    /* removing self from previous node routing struct */
     send_update_table(routing_next(r), -1, 0, routing_prev(r),self);
     /* removing self from next node routing struct and updating it's lower_id */
     send_update_table(routing_prev(r), routing_lid(r), 0, routing_next(r),self);
@@ -585,6 +607,7 @@ void terminate(routing r, address self){
 }
 
 int main(int argc, char **argv){
+    srand (time (NULL));
     int sock_id;
     struct sockaddr_in server_adr;
     int i, cmd;
@@ -593,7 +616,8 @@ int main(int argc, char **argv){
     uint self_port, dest_port;
     char self_ip[16];
     char dest_ip[16];
-    char msg[BUF_SIZE];
+    char *buffer;
+    self_id = (rand()+1) % MAX_NODES;
     address client = NULL;
     address server = NULL;
     routing r;
@@ -606,6 +630,9 @@ int main(int argc, char **argv){
             dest_port= atoi(argv[i+3]);
             server = address_create(dest_id, dest_ip, dest_port);
             printf("known node : id=%d ip=%s port=%d\n",dest_id,dest_ip,dest_port);
+            while( self_id == dest_id){
+               self_id = (rand()+1) % MAX_NODES;
+            }
         }
         if (!strcmp(argv[i],"-p")) {
             strcpy(self_ip ,"127.0.0.1");
@@ -618,22 +645,16 @@ int main(int argc, char **argv){
             exit(0);
         }
     }
-
-    srand (time (NULL));
-    if( (self_id = rand() % MAX_NODES) == dest_id){
-        srand (time (NULL));
-        self_id = rand() % MAX_NODES;
-    }
     client= address_create(self_id, self_ip, self_port);
     printf("self node : id=%d ip=%s port=%d\n",self_id,self_ip,self_port);
+
     /* Creation d'une socket en mode datagramme  */
-    /*-------------------------------------------*/
     sock_id = socket(AF_INET, SOCK_DGRAM, 0);
     if ( sock_id < 0 ) {
             perror("socket error");
             exit(EXIT_FAILURE);
     }
-    //printf("recvfrom socket : %d\n", sock_id);
+
     /* Initialisation adresse locale du serveur  */
     memset(&server_adr, 0, sizeof(server_adr));
     server_adr.sin_family = AF_INET;
@@ -650,84 +671,89 @@ int main(int argc, char **argv){
         stat_igst(s);
         address_clean(server);
     }
-    r = routing_create(client,client, address_id(client)+1, address_id(client),node_create(address_id(client),0));
+    address prev =address_create(address_id(client), address_ip(client),address_port(client));
+    address next =address_create(address_id(client), address_ip(client),address_port(client));
+
+    r = routing_create(prev,next, client, address_id(client)+1, address_id(client),node_create(address_id(client),0));
     while(1){
-        strcpy(msg, comm_in(client, sock_id, server_adr));
-        t = token_generate(msg); 
+        
+        buffer = comm_in(client, sock_id, server_adr);
+        t = token_generate(buffer); 
         cmd = cmd_sort(t);
         //token_print(t);
         switch(cmd){
             case(HELLO):
                 stat_igst(s);
-                req_id = hello(t,r,client, req_id);
+                req_id = hello(t,r, req_id);
                 break;
             case(HELLO_OK):
                 stat_igst(s);
-                hello_ok(t,r,client);
+                hello_ok(t,r);
                 break;
             case(HELLO_KO):
                 stat_igst(s);
                 srand (time (NULL));
-                if( (self_id = rand() % MAX_NODES) == dest_id){
+                if( (self_id = rand() % MAX_NODES+1) == dest_id){
                     srand (time (NULL));
-                    self_id = rand() % MAX_NODES;
+                    self_id = rand() % MAX_NODES+1;
                 }
                 address_id_update(client, self_id);
                 send_hello(client, server, client);
                 break;
             case(GET):
                 stat_iget(s);
-                get(t,r,client);
+                get(t,r);
                 break;
             case(ANSWER):
                 stat_igst(s);
-                answer(t,r,client);
+                answer(t,r);
                 break;
             case(PUT):
                 stat_iput(s);
-                put(t,r,client);
+                put(t,r);
                 break;
             case(ACK):
                 stat_igst(s);
-                ack(t,r,client);
+                ack(t,r);
                 break;
             case(GET_RESP):
                 stat_iget(s);
-                get_resp(t,r,client);
+                get_resp(t,r);
                 break;
             case(ANSWER_RESP):
                 stat_igst(s);
-                ans_resp(t,r,client);
+                ans_resp(t,r);
                 break;
             case(UPDATE_TABLE):
                 stat_igst(s);
-                update_table(t, r, client);
+                update_table(t, r);
                 break;
             case(PRINT):
                 stat_igst(s);
-                print(t, r, client, s);
+                print(t, r, s);
                 break;
             case(GET_STAT):
                 stat_igst(s);
-                get_stat(t, r, client, s);
+                get_stat(t, r, s);
                 break;
             case(TERMINATE):
                 stat_igst(s);
-                terminate(r,client);
+                terminate(r);
                 goto terminator;
                 break;
             default:
                 printf("Unkown code %d, self-termination \n", cmd);
-                terminate(r,client);
+                terminate(r);
+
                 goto terminator;
                 break;
         }
-        memset(msg, 0, BUF_SIZE);
+        token_clean(t);
     }
 terminator :
     close(sock_id);
-    routing_clean(r);
     token_clean(t);
-    address_clean(client);
+    routing_clean(r);
+    stat_clean(s);
     return 0;
 }
