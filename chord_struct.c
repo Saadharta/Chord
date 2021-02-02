@@ -294,11 +294,9 @@ void routing_update(routing r, address prev, address next, int lower_id, int hig
     if(prev != NULL){
         address_clean(r->prev);
         r->prev = prev;
-        //r->prev = address_create(address_id(prev),address_ip(prev), address_port(next));
     }
     if(next != NULL){
         address_clean(r->next);
-        //r->next = address_create(address_id(next),address_ip(next), address_port(next));
         r->next = next;
     }
     if(lower_id != -1)

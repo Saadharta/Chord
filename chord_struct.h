@@ -319,6 +319,7 @@ void stat_igst(statistics s);
  * @param s stat struct to free
  */
 void stat_clean(statistics s);
+
 /*--------------*/
 /* TOKEN struct */
 /*--------------*/
