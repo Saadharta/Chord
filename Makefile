@@ -1,10 +1,11 @@
 CC=gcc
-OPT=-Wall -Werror
-ARCHIVE_NAME = "Demiguel François-Etienne_CHORD"
+OPT=-Wall -Werror -g
+ARCHIVE_NAME = "Demiguel François-Etienne_CHORD.tgz"
 
 STRUCT = chord_struct
 CHORD = chord
-SPLITTER = cmd_splitter
+CMD_CORE = chord_cmd_core
+COMM = chord_comm
 
 all : $(CHORD)
 
@@ -14,11 +15,15 @@ chord_struct.o : $(STRUCT).c
 chord.o : $(CHORD).c
 	$(CC) $(OPT) -c $(CHORD).c -o $(CHORD).o
 
-cmd_splitter.o : $(SPLITTER).c
-	$(CC) -c $(SPLITTER).c -o $(SPLITTER).o
+chord_cmd_core.o : $(CMD_CORE).c
+	$(CC) -c $(CMD_CORE).c -o $(CMD_CORE).o
 
-$(CHORD) : $(STRUCT).o $(SPLITTER).o $(CHORD).o
-	$(CC) $(OPT) $(STRUCT).o $(SPLITTER).o $(CHORD).o -o $(CHORD)
+chord_comm.o : $(COMM).c
+	$(CC) -c $(COMM).c -o $(COMM).o
+
+
+$(CHORD) : $(STRUCT).o $(CMD_CORE).o $(COMM).o $(CHORD).o
+	$(CC) $(OPT) $(STRUCT).o $(CMD_CORE).o $(COMM).o $(CHORD).o -o $(CHORD)
 
 ### Project management
 archive: fclean
@@ -30,4 +35,4 @@ clean :
 fclean: clean
 	rm -rf ${ARCHIVE_NAME}
 
-.PHONY : all chord_struct.o chord.o cmd_cplitter.o chord archive clean fclean
+.PHONY : all chord_struct.o chord.o chord_cmd_core.o chord_comm.o chord archive clean fclean
